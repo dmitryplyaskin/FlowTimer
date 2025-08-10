@@ -1,3 +1,26 @@
 hello-world = Привет, мир!
 menu-language = Язык
 
+settings-title = Настройки
+tab-timers = Таймеры и экраны
+tab-system = Системные настройки
+timers-mode = Режим работы
+mode-static = Статичный
+mode-interval = Интервальный
+timers-screens = Экраны
+btn-add = Добавить
+btn-delete = Удалить
+screen-new = Новый экран
+screen-edit = Редактор экрана
+field-title = Заголовок
+field-subtitle = Подзаголовок
+field-color = Цвет
+timers-params = Временные параметры
+btn-add-interval = Добавить интервал
+col-screen = Экран
+col-start = Начало
+col-end = Конец
+select = Выбрать
+interval-range = Общий диапазон
+btn-add-seq = Добавить шаг
+col-duration = Длительность (мин)

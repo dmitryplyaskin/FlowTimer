@@ -1,3 +1,26 @@
 hello-world = Hello, world!
 menu-language = Language
 
+settings-title = Settings
+tab-timers = Timers & Screens
+tab-system = System Settings
+timers-mode = Mode
+mode-static = Static
+mode-interval = Interval
+timers-screens = Screens
+btn-add = Add
+btn-delete = Delete
+screen-new = New screen
+screen-edit = Screen editor
+field-title = Title
+field-subtitle = Subtitle
+field-color = Color
+timers-params = Time parameters
+btn-add-interval = Add interval
+col-screen = Screen
+col-start = Start
+col-end = End
+select = Select
+interval-range = Global range
+btn-add-seq = Add step
+col-duration = Duration (min)
