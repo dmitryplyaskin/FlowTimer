@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use eframe::egui;
 
-use crate::{config::{AppConfig, ScreenConfig, Rgba8, TimeInterval, IntervalMode, CycleStep, TimeOfDay}, timer::{determine_active_screen, format_duration_hhmmss}, utils::{tr, set_language}};
+use crate::{config::{AppConfig, ScreenConfig, Rgba8, TimeInterval, IntervalMode, CycleStep, TimeOfDay}, timer::{format_duration_hhmmss, TimerScheduler, format_time_until_transition, validate_intervals, get_daily_transitions}, utils::{tr, set_language}};
 
 use fluent_bundle::{FluentBundle, FluentResource};
 
@@ -31,10 +31,32 @@ pub struct AppState {
     pub editing_interval: Option<EditingInterval>,
     pub next_screen_id: u32,
     pub next_interval_id: u32,
+    pub timer_scheduler: TimerScheduler,
 }
 
 impl AppState {
     pub fn update_ui(&mut self, ctx: &egui::Context) {
+        // Обрабатываем горячие клавиши
+        ctx.input(|i| {
+            if i.key_pressed(egui::Key::Space) {
+                self.timer_scheduler.toggle_pause();
+            }
+            if i.key_pressed(egui::Key::F5) || (i.modifiers.ctrl && i.key_pressed(egui::Key::R)) {
+                self.timer_scheduler.force_update(&self.config);
+            }
+            if i.key_pressed(egui::Key::F1) || (i.modifiers.ctrl && i.key_pressed(egui::Key::Comma)) {
+                self.show_settings = !self.show_settings;
+            }
+        });
+        
+        // Обновляем планировщик таймера
+        let screen_changed = self.timer_scheduler.update(&self.config);
+        
+        // Если экран изменился и включены звуковые уведомления, можно добавить звук
+        if screen_changed && self.config.system_settings.sound_notifications {
+            // TODO: Добавить воспроизведение звука при смене экранов
+        }
+        
         ctx.request_repaint_after(Duration::from_secs(1));
         self.top_bar(ctx);
         self.main_panel(ctx);
@@ -70,8 +92,12 @@ impl AppState {
     }
 
     fn main_panel(&mut self, ctx: &egui::Context) {
-        let now = chrono::Local::now();
-        if let Some(active) = determine_active_screen(&self.config, now) {
+        // Клонируем информацию о текущем экране, чтобы избежать проблем с заимствованием
+        let current_screen = self.timer_scheduler.state.current_screen.clone();
+        let next_transition = self.timer_scheduler.state.next_transition;
+        let is_running = self.timer_scheduler.state.is_running;
+        
+        if let Some(active) = current_screen {
             let bg = active.color.to_egui();
             egui::CentralPanel::default()
                 .frame(egui::Frame::default().fill(bg))
@@ -83,15 +109,61 @@ impl AppState {
                         if !active.subtitle.is_empty() {
                             ui.label(&active.subtitle);
                         }
+                        
+                        // Показываем название интервала, если это не экран по умолчанию
+                        if !active.is_default_screen {
+                            ui.small(&format!("Интервал: {}", active.interval_name));
+                        }
+                        
                         ui.add_space(24.0);
                         let text = egui::RichText::new(remaining_text).size(64.0).strong();
                         ui.label(text);
+                        
+                        // Показываем время до следующего перехода
+                        if let Some(next_transition) = next_transition {
+                            let next_text = format_time_until_transition(Some(next_transition));
+                            ui.add_space(12.0);
+                            ui.small(&format!("Следующий переход через: {}", next_text));
+                        }
+                        
+                        // Кнопки управления таймером
+                        ui.add_space(20.0);
+                        ui.horizontal(|ui| {
+                            if is_running {
+                                if ui.button("⏸ Пауза").clicked() {
+                                    self.timer_scheduler.toggle_pause();
+                                }
+                            } else {
+                                if ui.button("▶ Продолжить").clicked() {
+                                    self.timer_scheduler.toggle_pause();
+                                }
+                            }
+                            
+                            if ui.button("🔄 Обновить").clicked() {
+                                self.timer_scheduler.force_update(&self.config);
+                            }
+                        });
+                        
+                        // Показываем статус таймера и горячие клавиши
+                        ui.add_space(10.0);
+                        if !is_running {
+                            ui.small("⏸ Таймер приостановлен");
+                        }
+                        
+                        ui.add_space(10.0);
+                        ui.group(|ui| {
+                            ui.small("Горячие клавиши:");
+                            ui.small("Space - пауза/продолжить");
+                            ui.small("F5 или Ctrl+R - обновить");
+                            ui.small("F1 или Ctrl+, - настройки");
+                        });
                     });
                 });
         } else {
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.centered_and_justified(|ui| {
-                    ui.label("No screen configured for now");
+                    ui.label("Нет настроенных экранов");
+                    ui.small("Откройте настройки для создания экранов и интервалов");
                 });
             });
         }
@@ -324,6 +396,56 @@ impl AppState {
                     is_new: false,
                 });
             }
+        }
+        
+        // Валидация и предупреждения
+        ui.separator();
+        ui.heading("Валидация настроек");
+        
+        let validation_errors = validate_intervals(&self.config.intervals);
+        if !validation_errors.is_empty() {
+            ui.group(|ui| {
+                ui.strong("⚠ Обнаружены проблемы в настройках:");
+                for error in &validation_errors {
+                    ui.small(error);
+                }
+            });
+        } else {
+            ui.group(|ui| {
+                ui.strong("✓ Настройки корректны");
+                ui.small("Все интервалы настроены правильно");
+            });
+        }
+        
+        // Показываем расписание переходов на день
+        ui.separator();
+        ui.heading("Расписание переходов");
+        
+        let transitions = get_daily_transitions(&self.config);
+        if transitions.is_empty() {
+            ui.small("Нет настроенных переходов");
+        } else {
+            ui.group(|ui| {
+                egui::ScrollArea::vertical()
+                    .max_height(150.0)
+                    .show(ui, |ui| {
+                        for (time_min, description, transition_type) in transitions {
+                            let hour = time_min / 60;
+                            let minute = time_min % 60;
+                            let icon = match transition_type.as_str() {
+                                "start" => "▶",
+                                "end" => "⏸",
+                                "step" => "🔄",
+                                _ => "•",
+                            };
+                            ui.horizontal(|ui| {
+                                ui.monospace(format!("{:02}:{:02}", hour, minute));
+                                ui.label(icon);
+                                ui.small(description);
+                            });
+                        }
+                    });
+            });
         }
         
         // Сохранение изменений
@@ -606,8 +728,113 @@ impl AppState {
     }
 
     fn ui_tab_system(&mut self, ui: &mut egui::Ui) {
-        ui.label("Системные настройки (язык, автозапуск и пр.) — позже.");
-        ui.small("(Шаг 5 по ТЗ)");
+        let mut settings_changed = false;
+        
+        // Язык интерфейса
+        ui.group(|ui| {
+            ui.strong(tr(&self.bundle, "system-language"));
+            ui.small(tr(&self.bundle, "system-language-desc"));
+            
+            let mut selected = self.config.language.to_string();
+            let current_text = match selected.as_str() {
+                "ru-RU" | "ru" => "Русский",
+                _ => "English",
+            };
+            
+            ui.horizontal(|ui| {
+                egui::ComboBox::from_id_salt("system_language")
+                    .selected_text(current_text)
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut selected, "en-US".to_owned(), "English");
+                        ui.selectable_value(&mut selected, "ru-RU".to_owned(), "Русский");
+                    });
+            });
+            
+            if selected != self.config.language.to_string() {
+                set_language(self, &selected);
+                settings_changed = true;
+            }
+        });
+        
+        ui.separator();
+        
+        // Автозапуск с системой
+        ui.group(|ui| {
+            ui.strong(tr(&self.bundle, "system-autostart"));
+            ui.small(tr(&self.bundle, "system-autostart-desc"));
+            
+            if ui.checkbox(&mut self.config.system_settings.autostart, "").changed() {
+                settings_changed = true;
+            }
+        });
+        
+        ui.separator();
+        
+        // Звуковые уведомления
+        ui.group(|ui| {
+            ui.strong(tr(&self.bundle, "system-sounds"));
+            ui.small(tr(&self.bundle, "system-sounds-desc"));
+            
+            if ui.checkbox(&mut self.config.system_settings.sound_notifications, "").changed() {
+                settings_changed = true;
+            }
+        });
+        
+        ui.separator();
+        
+        // Положение окна на экране
+        ui.group(|ui| {
+            ui.strong(tr(&self.bundle, "system-window-pos"));
+            ui.small(tr(&self.bundle, "system-window-pos-desc"));
+            
+            let has_position = self.config.system_settings.window_position.is_some();
+            let mut remember_position = has_position;
+            
+            if ui.checkbox(&mut remember_position, "").changed() {
+                if remember_position && !has_position {
+                    // Запомнить текущую позицию (пока что заглушка)
+                    self.config.system_settings.window_position = Some(crate::config::WindowPosition { x: 100.0, y: 100.0 });
+                } else if !remember_position && has_position {
+                    // Забыть позицию
+                    self.config.system_settings.window_position = None;
+                }
+                settings_changed = true;
+            }
+            
+            if let Some(pos) = &mut self.config.system_settings.window_position {
+                ui.horizontal(|ui| {
+                    ui.label("X:");
+                    if ui.add(egui::DragValue::new(&mut pos.x).range(0.0..=2000.0)).changed() {
+                        settings_changed = true;
+                    }
+                    ui.label("Y:");
+                    if ui.add(egui::DragValue::new(&mut pos.y).range(0.0..=2000.0)).changed() {
+                        settings_changed = true;
+                    }
+                });
+            }
+        });
+        
+        ui.separator();
+        
+        // Информация о версии и разработчике
+        ui.group(|ui| {
+            ui.strong("О приложении");
+            ui.label("FlowTimer v0.1.0");
+            ui.small("Приложение для визуального отображения временных интервалов");
+            ui.small("© 2024 Pet Projects");
+            
+            ui.separator();
+            ui.strong("Горячие клавиши:");
+            ui.small("Space - пауза/продолжить таймер");
+            ui.small("F5 или Ctrl+R - принудительно обновить");
+            ui.small("F1 или Ctrl+, - открыть/закрыть настройки");
+        });
+        
+        // Автосохранение при изменениях
+        if settings_changed {
+            let _ = crate::config::save_config(&self.config_path, &self.config);
+        }
     }
 }
 

@@ -10,6 +10,7 @@ mod utils;
 use config::load_or_default_config;
 use ui::{AppState, SettingsTab};
 use utils::make_bundle;
+use timer::TimerScheduler;
 
 fn main() -> eframe::Result<()> {
     let viewport = egui::ViewportBuilder::default()
@@ -52,6 +53,7 @@ impl MyApp {
             editing_interval: None,
             next_screen_id,
             next_interval_id,
+            timer_scheduler: TimerScheduler::new(),
         })
     }
 }

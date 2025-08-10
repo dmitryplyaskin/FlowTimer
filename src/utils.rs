@@ -1,4 +1,4 @@
-use fluent_bundle::{FluentBundle, FluentResource};
+use fluent_bundle::{FluentBundle, FluentResource, FluentArgs};
 use unic_langid::LanguageIdentifier;
 use crate::ui::AppState;
 
@@ -27,6 +27,40 @@ pub fn tr(bundle: &FluentBundle<FluentResource>, id: &str) -> String {
         }
     }
     id.to_string()
+}
+
+/// Локализация с параметрами
+pub fn tr_with_args(bundle: &FluentBundle<FluentResource>, id: &str, args: Option<&FluentArgs>) -> String {
+    if let Some(msg) = bundle.get_message(id) {
+        if let Some(pattern) = msg.value() {
+            let mut errors = vec![];
+            let value = bundle.format_pattern(pattern, args, &mut errors);
+            return value.into_owned();
+        }
+    }
+    id.to_string()
+}
+
+/// Создает FluentArgs для одного параметра
+pub fn make_args_1<'a>(key: &'a str, value: &'a str) -> FluentArgs<'a> {
+    let mut args = FluentArgs::new();
+    args.set(key, value);
+    args
+}
+
+/// Создает FluentArgs для двух параметров
+pub fn make_args_2<'a>(key1: &'a str, value1: &'a str, key2: &'a str, value2: &'a str) -> FluentArgs<'a> {
+    let mut args = FluentArgs::new();
+    args.set(key1, value1);
+    args.set(key2, value2);
+    args
+}
+
+/// Создает FluentArgs для числового параметра
+pub fn make_args_num<'a>(key: &'a str, value: i64) -> FluentArgs<'a> {
+    let mut args = FluentArgs::new();
+    args.set(key, value);
+    args
 }
 
 pub fn set_language(app: &mut AppState, lang_tag: &str) {
