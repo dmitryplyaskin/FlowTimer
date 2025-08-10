@@ -36,6 +36,9 @@ pub struct AppState {
 
 impl AppState {
     pub fn update_ui(&mut self, ctx: &egui::Context) {
+        // Настраиваем глобальный стиль приложения
+        self.setup_custom_style(ctx);
+        
         // Обрабатываем горячие клавиши
         ctx.input(|i| {
             if i.key_pressed(egui::Key::Space) {
@@ -63,32 +66,101 @@ impl AppState {
         self.settings_window(ctx);
     }
 
-    fn top_bar(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                let label = tr(&self.bundle, "menu-language");
-                let mut selected = self.config.language.to_string();
-                egui::ComboBox::from_label(label)
-                    .selected_text(match selected.as_str() {
-                        "ru-RU" | "ru" => "Русский",
-                        _ => "English",
-                    })
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut selected, "en-US".to_owned(), "English");
-                        ui.selectable_value(&mut selected, "ru-RU".to_owned(), "Русский");
-                    });
+    fn setup_custom_style(&self, ctx: &egui::Context) {
+        let mut style = (*ctx.style()).clone();
+        
+        // Настройки шрифтов
+        style.text_styles.insert(
+            egui::TextStyle::Heading,
+            egui::FontId::new(24.0, egui::FontFamily::Proportional)
+        );
+        style.text_styles.insert(
+            egui::TextStyle::Body,
+            egui::FontId::new(16.0, egui::FontFamily::Proportional)
+        );
+        style.text_styles.insert(
+            egui::TextStyle::Button,
+            egui::FontId::new(16.0, egui::FontFamily::Proportional)
+        );
+        
+        // Настройки отступов и размеров
+        style.spacing.button_padding = egui::vec2(12.0, 8.0);
+        style.spacing.item_spacing = egui::vec2(8.0, 8.0);
+        style.spacing.indent = 16.0;
+        
+        // Настройки визуального стиля
+        style.visuals.panel_fill = egui::Color32::from_rgba_unmultiplied(40, 40, 40, 240);
+        
+        ctx.set_style(style);
+    }
 
-                if selected != self.config.language.to_string() {
-                    set_language(self, &selected);
+    fn top_bar(&mut self, ctx: &egui::Context) {
+        let title_bar_height = 40.0;
+
+        egui::TopBottomPanel::top("title_bar")
+            .exact_height(title_bar_height)
+            .frame(egui::Frame::default().fill(egui::Color32::from_rgba_unmultiplied(0, 0, 0, 150)))
+            .show(ctx, |ui| {
+                // Делаем заголовок перетаскиваемым
+                let title_bar_rect = ui.max_rect();
+                let title_bar_response = ui.allocate_rect(title_bar_rect, egui::Sense::click());
+                
+                if title_bar_response.is_pointer_button_down_on() {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
                 }
 
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("⚙").on_hover_text("Settings").clicked() {
-                        self.show_settings = true;
+                ui.horizontal(|ui| {
+                    ui.add_space(10.0);
+                    
+                    // Левая сторона - выбор языка
+                    let mut selected = self.config.language.to_string();
+                    ui.style_mut().spacing.combo_width = 80.0;
+                    egui::ComboBox::from_id_salt("lang_combo")
+                        .selected_text(match selected.as_str() {
+                            "ru-RU" | "ru" => "Русский",
+                            _ => "English",
+                        })
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut selected, "en-US".to_owned(), "English");
+                            ui.selectable_value(&mut selected, "ru-RU".to_owned(), "Русский");
+                        });
+
+                    if selected != self.config.language.to_string() {
+                        set_language(self, &selected);
                     }
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.add_space(10.0);
+                        
+                        // Кнопка закрытия
+                        if ui.add(egui::Button::new("✕")
+                            .fill(egui::Color32::TRANSPARENT)
+                            .stroke(egui::Stroke::NONE))
+                            .on_hover_text("Закрыть")
+                            .clicked() {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
+
+                        // Кнопка сворачивания  
+                        if ui.add(egui::Button::new("−")
+                            .fill(egui::Color32::TRANSPARENT)
+                            .stroke(egui::Stroke::NONE))
+                            .on_hover_text("Свернуть")
+                            .clicked() {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                        }
+
+                        // Кнопка настроек
+                        if ui.add(egui::Button::new("⚙")
+                            .fill(egui::Color32::TRANSPARENT)
+                            .stroke(egui::Stroke::NONE))
+                            .on_hover_text("Настройки")
+                            .clicked() {
+                            self.show_settings = true;
+                        }
+                    });
                 });
             });
-        });
     }
 
     fn main_panel(&mut self, ctx: &egui::Context) {
@@ -103,69 +175,115 @@ impl AppState {
                 .frame(egui::Frame::default().fill(bg))
                 .show(ctx, |ui| {
                     let remaining_text = format_duration_hhmmss(active.remaining_seconds);
+                    
                     ui.vertical_centered(|ui| {
-                        ui.add_space(40.0);
-                        ui.heading(&active.title);
+                        ui.add_space(30.0);
+                        
+                        // Заголовок
+                        let title_text = egui::RichText::new(&active.title)
+                            .size(36.0)
+                            .strong()
+                            .color(egui::Color32::WHITE);
+                        ui.label(title_text);
+                        
+                        // Подзаголовок
                         if !active.subtitle.is_empty() {
-                            ui.label(&active.subtitle);
+                            ui.add_space(5.0);
+                            let subtitle_text = egui::RichText::new(&active.subtitle)
+                                .size(18.0)
+                                .color(egui::Color32::from_rgba_unmultiplied(255, 255, 255, 220));
+                            ui.label(subtitle_text);
                         }
                         
-                        // Показываем название интервала, если это не экран по умолчанию
-                        if !active.is_default_screen {
-                            ui.small(&format!("Интервал: {}", active.interval_name));
-                        }
+                        ui.add_space(40.0);
                         
-                        ui.add_space(24.0);
-                        let text = egui::RichText::new(remaining_text).size(64.0).strong();
-                        ui.label(text);
+                        // Большой белый таймер по центру
+                        let timer_text = egui::RichText::new(remaining_text)
+                            .size(72.0)
+                            .strong()
+                            .color(egui::Color32::WHITE);
+                        ui.label(timer_text);
                         
-                        // Показываем время до следующего перехода
+                        ui.add_space(30.0);
+                        
+                        // Информация о следующем переходе
                         if let Some(next_transition) = next_transition {
                             let next_text = format_time_until_transition(Some(next_transition));
-                            ui.add_space(12.0);
-                            ui.small(&format!("Следующий переход через: {}", next_text));
+                            let next_text_styled = egui::RichText::new(&format!("Смена интервала через: {}", next_text))
+                                .size(16.0)
+                                .color(egui::Color32::from_rgba_unmultiplied(255, 255, 255, 200));
+                            ui.label(next_text_styled);
+                            ui.add_space(15.0);
                         }
                         
-                        // Кнопки управления таймером
-                        ui.add_space(20.0);
+                        // Кнопки управления
                         ui.horizontal(|ui| {
-                            if is_running {
-                                if ui.button("⏸ Пауза").clicked() {
-                                    self.timer_scheduler.toggle_pause();
-                                }
-                            } else {
-                                if ui.button("▶ Продолжить").clicked() {
-                                    self.timer_scheduler.toggle_pause();
-                                }
-                            }
+                            let button_size = egui::vec2(120.0, 40.0);
+                            let button_color = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 40);
                             
-                            if ui.button("🔄 Обновить").clicked() {
-                                self.timer_scheduler.force_update(&self.config);
-                            }
+                            ui.allocate_ui_with_layout(
+                                egui::vec2(ui.available_width(), 40.0),
+                                egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+                                |ui| {
+                                    ui.horizontal(|ui| {
+                                        if is_running {
+                                            if ui.add_sized(button_size, egui::Button::new("⏸ Пауза")
+                                                .fill(button_color))
+                                                .clicked() {
+                                                self.timer_scheduler.toggle_pause();
+                                            }
+                                        } else {
+                                            if ui.add_sized(button_size, egui::Button::new("▶ Продолжить")
+                                                .fill(button_color))
+                                                .clicked() {
+                                                self.timer_scheduler.toggle_pause();
+                                            }
+                                        }
+                                        
+                                        ui.add_space(10.0);
+                                        
+                                        if ui.add_sized(button_size, egui::Button::new("🔄 Обновить")
+                                            .fill(button_color))
+                                            .clicked() {
+                                            self.timer_scheduler.force_update(&self.config);
+                                        }
+                                    });
+                                }
+                            );
                         });
                         
-                        // Показываем статус таймера и горячие клавиши
-                        ui.add_space(10.0);
+                        // Статус паузы
                         if !is_running {
-                            ui.small("⏸ Таймер приостановлен");
+                            ui.add_space(15.0);
+                            let pause_text = egui::RichText::new("⏸ Таймер приостановлен")
+                                .size(16.0)
+                                .color(egui::Color32::from_rgba_unmultiplied(255, 255, 255, 200));
+                            ui.label(pause_text);
                         }
-                        
-                        ui.add_space(10.0);
-                        ui.group(|ui| {
-                            ui.small("Горячие клавиши:");
-                            ui.small("Space - пауза/продолжить");
-                            ui.small("F5 или Ctrl+R - обновить");
-                            ui.small("F1 или Ctrl+, - настройки");
-                        });
                     });
                 });
         } else {
-            egui::CentralPanel::default().show(ctx, |ui| {
-                ui.centered_and_justified(|ui| {
-                    ui.label("Нет настроенных экранов");
-                    ui.small("Откройте настройки для создания экранов и интервалов");
+            // Состояние когда нет экранов
+            egui::CentralPanel::default()
+                .frame(egui::Frame::default()
+                    .fill(egui::Color32::from_rgb(60, 60, 60)))
+                .show(ctx, |ui| {
+                    ui.centered_and_justified(|ui| {
+                        ui.vertical_centered(|ui| {
+                            let title = egui::RichText::new("Нет настроенных экранов")
+                                .size(24.0)
+                                .color(egui::Color32::WHITE);
+                            ui.label(title);
+                            
+                            ui.add_space(8.0);
+                            
+                            let hint = egui::RichText::new("Откройте настройки для создания экранов и интервалов")
+                                .size(14.0)
+                                .color(egui::Color32::from_rgba_unmultiplied(255, 255, 255, 180));
+                            ui.label(hint);
+                        });
+                    });
                 });
-            });
         }
     }
 

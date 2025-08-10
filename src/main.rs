@@ -14,9 +14,9 @@ use timer::TimerScheduler;
 
 fn main() -> eframe::Result<()> {
     let viewport = egui::ViewportBuilder::default()
-        .with_inner_size([400.0, 600.0])
-        .with_min_inner_size([400.0, 600.0])
-        .with_max_inner_size([400.0, 600.0])
+        .with_inner_size([600.0, 400.0])
+        .with_min_inner_size([600.0, 400.0])
+        .with_max_inner_size([600.0, 400.0])
         .with_decorations(false)
         .with_resizable(false)
         .with_always_on_top();
