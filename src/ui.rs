@@ -95,11 +95,12 @@ impl AppState {
     }
 
     fn top_bar(&mut self, ctx: &egui::Context) {
-        let title_bar_height = 40.0;
-
+        // Невидимая область для перетаскивания и контролов
+        let title_bar_height = 30.0;
+        
         egui::TopBottomPanel::top("title_bar")
             .exact_height(title_bar_height)
-            .frame(egui::Frame::default().fill(egui::Color32::from_rgba_unmultiplied(0, 0, 0, 150)))
+            .frame(egui::Frame::default().fill(egui::Color32::TRANSPARENT))
             .show(ctx, |ui| {
                 // Делаем заголовок перетаскиваемым
                 let title_bar_rect = ui.max_rect();
@@ -110,31 +111,41 @@ impl AppState {
                 }
 
                 ui.horizontal(|ui| {
-                    ui.add_space(10.0);
+                    ui.add_space(8.0);
                     
-                    // Левая сторона - выбор языка
+                    // Левая сторона - выбор языка (маленький и прозрачный)
                     let mut selected = self.config.language.to_string();
-                    ui.style_mut().spacing.combo_width = 80.0;
-                    egui::ComboBox::from_id_salt("lang_combo")
-                        .selected_text(match selected.as_str() {
-                            "ru-RU" | "ru" => "Русский",
-                            _ => "English",
-                        })
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut selected, "en-US".to_owned(), "English");
-                            ui.selectable_value(&mut selected, "ru-RU".to_owned(), "Русский");
-                        });
+                    ui.style_mut().spacing.combo_width = 70.0;
+                    
+                    ui.scope(|ui| {
+                        ui.visuals_mut().widgets.inactive.bg_fill = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 20);
+                        ui.visuals_mut().widgets.hovered.bg_fill = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 40);
+                        ui.visuals_mut().widgets.active.bg_fill = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 60);
+                        
+                        egui::ComboBox::from_id_salt("lang_combo")
+                            .selected_text(match selected.as_str() {
+                                "ru-RU" | "ru" => "RU",
+                                _ => "EN",
+                            })
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut selected, "en-US".to_owned(), "English");
+                                ui.selectable_value(&mut selected, "ru-RU".to_owned(), "Русский");
+                            });
+                    });
 
                     if selected != self.config.language.to_string() {
                         set_language(self, &selected);
                     }
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add_space(10.0);
+                        ui.add_space(8.0);
+                        
+                        // Кнопки управления - белые и полупрозрачные
+                        let button_color = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 40);
                         
                         // Кнопка закрытия
                         if ui.add(egui::Button::new("✕")
-                            .fill(egui::Color32::TRANSPARENT)
+                            .fill(button_color)
                             .stroke(egui::Stroke::NONE))
                             .on_hover_text("Закрыть")
                             .clicked() {
@@ -143,7 +154,7 @@ impl AppState {
 
                         // Кнопка сворачивания  
                         if ui.add(egui::Button::new("−")
-                            .fill(egui::Color32::TRANSPARENT)
+                            .fill(button_color)
                             .stroke(egui::Stroke::NONE))
                             .on_hover_text("Свернуть")
                             .clicked() {
@@ -152,7 +163,7 @@ impl AppState {
 
                         // Кнопка настроек
                         if ui.add(egui::Button::new("⚙")
-                            .fill(egui::Color32::TRANSPARENT)
+                            .fill(button_color)
                             .stroke(egui::Stroke::NONE))
                             .on_hover_text("Настройки")
                             .clicked() {
@@ -177,86 +188,78 @@ impl AppState {
                     let remaining_text = format_duration_hhmmss(active.remaining_seconds);
                     
                     ui.vertical_centered(|ui| {
-                        ui.add_space(30.0);
+                        ui.add_space(20.0);
                         
-                        // Заголовок
-                        let title_text = egui::RichText::new(&active.title)
-                            .size(36.0)
-                            .strong()
-                            .color(egui::Color32::WHITE);
-                        ui.label(title_text);
-                        
-                        // Подзаголовок
-                        if !active.subtitle.is_empty() {
-                            ui.add_space(5.0);
-                            let subtitle_text = egui::RichText::new(&active.subtitle)
-                                .size(18.0)
-                                .color(egui::Color32::from_rgba_unmultiplied(255, 255, 255, 220));
-                            ui.label(subtitle_text);
-                        }
-                        
-                        ui.add_space(40.0);
-                        
-                        // Большой белый таймер по центру
+                        // 1. ТАЙМЕР ПЕРВЫЙ - большой белый таймер по центру
                         let timer_text = egui::RichText::new(remaining_text)
-                            .size(72.0)
+                            .size(64.0)
                             .strong()
                             .color(egui::Color32::WHITE);
                         ui.label(timer_text);
                         
-                        ui.add_space(30.0);
+                        ui.add_space(15.0);
+                        
+                        // 2. ЗАГОЛОВОК ВТОРОЙ
+                        let title_text = egui::RichText::new(&active.title)
+                            .size(28.0)
+                            .strong()
+                            .color(egui::Color32::WHITE);
+                        ui.label(title_text);
+                        
+                        // 3. ПОДЗАГОЛОВОК ТРЕТИЙ
+                        if !active.subtitle.is_empty() {
+                            ui.add_space(3.0);
+                            let subtitle_text = egui::RichText::new(&active.subtitle)
+                                .size(16.0)
+                                .color(egui::Color32::from_rgba_unmultiplied(255, 255, 255, 220));
+                            ui.label(subtitle_text);
+                        }
+                        
+                        ui.add_space(20.0);
                         
                         // Информация о следующем переходе
                         if let Some(next_transition) = next_transition {
                             let next_text = format_time_until_transition(Some(next_transition));
                             let next_text_styled = egui::RichText::new(&format!("Смена интервала через: {}", next_text))
-                                .size(16.0)
+                                .size(14.0)
                                 .color(egui::Color32::from_rgba_unmultiplied(255, 255, 255, 200));
                             ui.label(next_text_styled);
-                            ui.add_space(15.0);
+                            ui.add_space(12.0);
                         }
                         
-                        // Кнопки управления
-                        ui.horizontal(|ui| {
-                            let button_size = egui::vec2(120.0, 40.0);
+                        // Кнопки управления - правильно отцентрированные
+                        ui.horizontal_centered(|ui| {
+                            let button_size = egui::vec2(100.0, 35.0);
                             let button_color = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 40);
                             
-                            ui.allocate_ui_with_layout(
-                                egui::vec2(ui.available_width(), 40.0),
-                                egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
-                                |ui| {
-                                    ui.horizontal(|ui| {
-                                        if is_running {
-                                            if ui.add_sized(button_size, egui::Button::new("⏸ Пауза")
-                                                .fill(button_color))
-                                                .clicked() {
-                                                self.timer_scheduler.toggle_pause();
-                                            }
-                                        } else {
-                                            if ui.add_sized(button_size, egui::Button::new("▶ Продолжить")
-                                                .fill(button_color))
-                                                .clicked() {
-                                                self.timer_scheduler.toggle_pause();
-                                            }
-                                        }
-                                        
-                                        ui.add_space(10.0);
-                                        
-                                        if ui.add_sized(button_size, egui::Button::new("🔄 Обновить")
-                                            .fill(button_color))
-                                            .clicked() {
-                                            self.timer_scheduler.force_update(&self.config);
-                                        }
-                                    });
+                            if is_running {
+                                if ui.add_sized(button_size, egui::Button::new("⏸ Пауза")
+                                    .fill(button_color))
+                                    .clicked() {
+                                    self.timer_scheduler.toggle_pause();
                                 }
-                            );
+                            } else {
+                                if ui.add_sized(button_size, egui::Button::new("▶ Продолжить")
+                                    .fill(button_color))
+                                    .clicked() {
+                                    self.timer_scheduler.toggle_pause();
+                                }
+                            }
+                            
+                            ui.add_space(8.0);
+                            
+                            if ui.add_sized(button_size, egui::Button::new("🔄 Обновить")
+                                .fill(button_color))
+                                .clicked() {
+                                self.timer_scheduler.force_update(&self.config);
+                            }
                         });
                         
                         // Статус паузы
                         if !is_running {
-                            ui.add_space(15.0);
+                            ui.add_space(10.0);
                             let pause_text = egui::RichText::new("⏸ Таймер приостановлен")
-                                .size(16.0)
+                                .size(14.0)
                                 .color(egui::Color32::from_rgba_unmultiplied(255, 255, 255, 200));
                             ui.label(pause_text);
                         }
