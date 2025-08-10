@@ -40,12 +40,18 @@ impl MyApp {
     fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let (config_path, config) = load_or_default_config();
         let bundle = make_bundle(&config.language);
+        let next_screen_id = config.screens.iter().map(|s| s.id).max().unwrap_or(0) + 1;
+        let next_interval_id = config.intervals.iter().map(|i| i.id).max().unwrap_or(0) + 1;
         Self(AppState {
             config,
             config_path,
             bundle,
             show_settings: false,
             settings_tab: SettingsTab::Timers,
+            editing_screen: None,
+            editing_interval: None,
+            next_screen_id,
+            next_interval_id,
         })
     }
 }

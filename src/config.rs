@@ -50,35 +50,36 @@ pub struct TimeRange {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StaticEntry {
-    pub screen_id: u32,
-    pub start: TimeOfDay,
-    pub end: TimeOfDay,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IntervalEntry {
+pub struct CycleStep {
     pub screen_id: u32,
     pub duration_minutes: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum TimerMode {
+#[serde(tag = "mode", rename_all = "snake_case")]
+pub enum IntervalMode {
     Static {
-        schedule: Vec<StaticEntry>,
+        screen_id: u32,
     },
-    Interval {
-        range: TimeRange,
-        sequence: Vec<IntervalEntry>,
+    Cycle {
+        steps: Vec<CycleStep>,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeInterval {
+    pub id: u32,
+    pub name: String,
+    pub start: TimeOfDay,
+    pub end: TimeOfDay,
+    pub mode: IntervalMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub language: LanguageIdentifier,
     pub screens: Vec<ScreenConfig>,
-    pub mode: TimerMode,
+    pub intervals: Vec<TimeInterval>,
     pub default_screen_id: Option<u32>,
 }
 
@@ -89,18 +90,33 @@ impl Default for AppConfig {
             ScreenConfig { id: 2, title: "Перерыв".into(), subtitle: "Отдых".into(), color: Rgba8 { r: 231, g: 76, b: 60, a: 255 } }, // красный
             ScreenConfig { id: 3, title: "Подготовка".into(), subtitle: "".into(), color: Rgba8 { r: 52, g: 152, b: 219, a: 255 } }, // синий
         ];
-        let mode = TimerMode::Static {
-            schedule: vec![
-                StaticEntry { screen_id: 2, start: TimeOfDay { hour: 8, minute: 0 }, end: TimeOfDay { hour: 11, minute: 0 } },
-                StaticEntry { screen_id: 1, start: TimeOfDay { hour: 11, minute: 0 }, end: TimeOfDay { hour: 14, minute: 0 } },
-                StaticEntry { screen_id: 3, start: TimeOfDay { hour: 14, minute: 0 }, end: TimeOfDay { hour: 18, minute: 0 } },
-            ],
-        };
+        
+        let intervals = vec![
+            TimeInterval {
+                id: 1,
+                name: "Утренняя работа".into(),
+                start: TimeOfDay { hour: 9, minute: 0 },
+                end: TimeOfDay { hour: 12, minute: 0 },
+                mode: IntervalMode::Static { screen_id: 1 },
+            },
+            TimeInterval {
+                id: 2,
+                name: "Помодоро сессия".into(),
+                start: TimeOfDay { hour: 14, minute: 0 },
+                end: TimeOfDay { hour: 18, minute: 0 },
+                mode: IntervalMode::Cycle {
+                    steps: vec![
+                        CycleStep { screen_id: 1, duration_minutes: 25 },
+                        CycleStep { screen_id: 2, duration_minutes: 5 },
+                    ],
+                },
+            },
+        ];
 
         Self {
             language: "ru-RU".parse().unwrap(),
             screens,
-            mode,
+            intervals,
             default_screen_id: Some(1),
         }
     }
