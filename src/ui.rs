@@ -4,10 +4,7 @@ use eframe::egui;
 
 use crate::{
     config::{AppConfig, CycleStep, IntervalMode, Rgba8, ScreenConfig, TimeInterval, TimeOfDay},
-    timer::{
-        format_duration_hhmmss, format_time_until_transition, get_daily_transitions,
-        validate_intervals, TimerScheduler,
-    },
+    timer::{TimerScheduler, format_duration_hhmmss, get_daily_transitions, validate_intervals},
     utils::{set_language, tr},
 };
 
@@ -51,12 +48,6 @@ impl AppState {
 
         // Обрабатываем горячие клавиши
         ctx.input(|i| {
-            if i.key_pressed(egui::Key::Space) {
-                self.timer_scheduler.toggle_pause();
-            }
-            if i.key_pressed(egui::Key::F5) || (i.modifiers.ctrl && i.key_pressed(egui::Key::R)) {
-                self.timer_scheduler.force_update(&self.config);
-            }
             if i.key_pressed(egui::Key::F1) || (i.modifiers.ctrl && i.key_pressed(egui::Key::Comma))
             {
                 self.show_settings = !self.show_settings;
@@ -107,8 +98,8 @@ impl AppState {
     fn main_panel(&mut self, ctx: &egui::Context) {
         // Клонируем информацию о текущем экране, чтобы избежать проблем с заимствованием
         let current_screen = self.timer_scheduler.state.current_screen.clone();
-        let next_transition = self.timer_scheduler.state.next_transition;
-        let is_running = self.timer_scheduler.state.is_running;
+        let _next_transition = self.timer_scheduler.state.next_transition;
+        let _is_running = self.timer_scheduler.state.is_running;
 
         if let Some(active) = current_screen {
             let bg = active.color.to_egui();
@@ -119,46 +110,11 @@ impl AppState {
                     ui.horizontal(|ui| {
                         // Делаем область для перетаскивания окна
                         let drag_area = ui.allocate_response(
-                            egui::vec2(ui.available_width() - 200.0, 30.0),
+                            egui::vec2(ui.available_width() - 120.0, 30.0),
                             egui::Sense::click(),
                         );
                         if drag_area.is_pointer_button_down_on() {
                             ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
-                        }
-
-                        // Левая сторона - выбор языка (маленький и прозрачный)
-                        let mut selected = self.config.language.to_string();
-                        ui.style_mut().spacing.combo_width = 70.0;
-
-                        ui.scope(|ui| {
-                            ui.visuals_mut().widgets.inactive.bg_fill =
-                                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 20);
-                            ui.visuals_mut().widgets.hovered.bg_fill =
-                                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 40);
-                            ui.visuals_mut().widgets.active.bg_fill =
-                                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 60);
-
-                            egui::ComboBox::from_id_salt("lang_combo")
-                                .selected_text(match selected.as_str() {
-                                    "ru-RU" | "ru" => "RU",
-                                    _ => "EN",
-                                })
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut selected,
-                                        "en-US".to_owned(),
-                                        "English",
-                                    );
-                                    ui.selectable_value(
-                                        &mut selected,
-                                        "ru-RU".to_owned(),
-                                        "Русский",
-                                    );
-                                });
-                        });
-
-                        if selected != self.config.language.to_string() {
-                            set_language(self, &selected);
                         }
 
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -173,7 +129,7 @@ impl AppState {
                                         .fill(button_color)
                                         .stroke(egui::Stroke::NONE),
                                 )
-                                .on_hover_text("Закрыть")
+                                .on_hover_text(tr(&self.bundle, "btn-close"))
                                 .clicked()
                             {
                                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -186,7 +142,7 @@ impl AppState {
                                         .fill(button_color)
                                         .stroke(egui::Stroke::NONE),
                                 )
-                                .on_hover_text("Свернуть")
+                                .on_hover_text(tr(&self.bundle, "btn-minimize"))
                                 .clicked()
                             {
                                 ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
@@ -199,7 +155,7 @@ impl AppState {
                                         .fill(button_color)
                                         .stroke(egui::Stroke::NONE),
                                 )
-                                .on_hover_text("Настройки")
+                                .on_hover_text(tr(&self.bundle, "btn-settings"))
                                 .clicked()
                             {
                                 self.show_settings = true;
@@ -239,69 +195,6 @@ impl AppState {
                         }
 
                         ui.add_space(20.0);
-
-                        // Информация о следующем переходе
-                        if let Some(next_transition) = next_transition {
-                            let next_text = format_time_until_transition(Some(next_transition));
-                            let next_text_styled = egui::RichText::new(&format!(
-                                "Смена интервала через: {}",
-                                next_text
-                            ))
-                            .size(14.0)
-                            .color(egui::Color32::from_rgba_unmultiplied(255, 255, 255, 200));
-                            ui.label(next_text_styled);
-                            ui.add_space(12.0);
-                        }
-
-                        // Кнопки управления - правильно отцентрированные
-                        ui.horizontal_centered(|ui| {
-                            let button_size = egui::vec2(100.0, 35.0);
-                            let button_color =
-                                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 40);
-
-                            if is_running {
-                                if ui
-                                    .add_sized(
-                                        button_size,
-                                        egui::Button::new("⏸ Пауза").fill(button_color),
-                                    )
-                                    .clicked()
-                                {
-                                    self.timer_scheduler.toggle_pause();
-                                }
-                            } else {
-                                if ui
-                                    .add_sized(
-                                        button_size,
-                                        egui::Button::new("▶ Продолжить").fill(button_color),
-                                    )
-                                    .clicked()
-                                {
-                                    self.timer_scheduler.toggle_pause();
-                                }
-                            }
-
-                            ui.add_space(8.0);
-
-                            if ui
-                                .add_sized(
-                                    button_size,
-                                    egui::Button::new("🔄 Обновить").fill(button_color),
-                                )
-                                .clicked()
-                            {
-                                self.timer_scheduler.force_update(&self.config);
-                            }
-                        });
-
-                        // Статус паузы
-                        if !is_running {
-                            ui.add_space(10.0);
-                            let pause_text = egui::RichText::new("⏸ Таймер приостановлен")
-                                .size(14.0)
-                                .color(egui::Color32::from_rgba_unmultiplied(255, 255, 255, 200));
-                            ui.label(pause_text);
-                        }
                     });
                 });
         } else {
@@ -313,46 +206,11 @@ impl AppState {
                     ui.horizontal(|ui| {
                         // Делаем область для перетаскивания окна
                         let drag_area = ui.allocate_response(
-                            egui::vec2(ui.available_width() - 200.0, 30.0),
+                            egui::vec2(ui.available_width() - 120.0, 30.0),
                             egui::Sense::click(),
                         );
                         if drag_area.is_pointer_button_down_on() {
                             ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
-                        }
-
-                        // Левая сторона - выбор языка
-                        let mut selected = self.config.language.to_string();
-                        ui.style_mut().spacing.combo_width = 70.0;
-
-                        ui.scope(|ui| {
-                            ui.visuals_mut().widgets.inactive.bg_fill =
-                                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 20);
-                            ui.visuals_mut().widgets.hovered.bg_fill =
-                                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 40);
-                            ui.visuals_mut().widgets.active.bg_fill =
-                                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 60);
-
-                            egui::ComboBox::from_id_salt("lang_combo")
-                                .selected_text(match selected.as_str() {
-                                    "ru-RU" | "ru" => "RU",
-                                    _ => "EN",
-                                })
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut selected,
-                                        "en-US".to_owned(),
-                                        "English",
-                                    );
-                                    ui.selectable_value(
-                                        &mut selected,
-                                        "ru-RU".to_owned(),
-                                        "Русский",
-                                    );
-                                });
-                        });
-
-                        if selected != self.config.language.to_string() {
-                            set_language(self, &selected);
                         }
 
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -367,7 +225,7 @@ impl AppState {
                                         .fill(button_color)
                                         .stroke(egui::Stroke::NONE),
                                 )
-                                .on_hover_text("Закрыть")
+                                .on_hover_text(tr(&self.bundle, "btn-close"))
                                 .clicked()
                             {
                                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -380,7 +238,7 @@ impl AppState {
                                         .fill(button_color)
                                         .stroke(egui::Stroke::NONE),
                                 )
-                                .on_hover_text("Свернуть")
+                                .on_hover_text(tr(&self.bundle, "btn-minimize"))
                                 .clicked()
                             {
                                 ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
@@ -393,7 +251,7 @@ impl AppState {
                                         .fill(button_color)
                                         .stroke(egui::Stroke::NONE),
                                 )
-                                .on_hover_text("Настройки")
+                                .on_hover_text(tr(&self.bundle, "btn-settings"))
                                 .clicked()
                             {
                                 self.show_settings = true;
@@ -404,18 +262,19 @@ impl AppState {
                     // ОСНОВНОЕ СОДЕРЖИМОЕ
                     ui.centered_and_justified(|ui| {
                         ui.vertical_centered(|ui| {
-                            let title = egui::RichText::new("Нет настроенных экранов")
+                            let title = egui::RichText::new(tr(&self.bundle, "main-no-screens"))
                                 .size(24.0)
                                 .color(egui::Color32::WHITE);
                             ui.label(title);
 
                             ui.add_space(8.0);
 
-                            let hint = egui::RichText::new(
-                                "Откройте настройки для создания экранов и интервалов",
-                            )
-                            .size(14.0)
-                            .color(egui::Color32::from_rgba_unmultiplied(255, 255, 255, 180));
+                            let hint =
+                                egui::RichText::new(tr(&self.bundle, "main-no-screens-hint"))
+                                    .size(14.0)
+                                    .color(egui::Color32::from_rgba_unmultiplied(
+                                        255, 255, 255, 180,
+                                    ));
                             ui.label(hint);
                         });
                     });
@@ -497,8 +356,8 @@ impl AppState {
 
     fn ui_tab_timers(&mut self, ui: &mut egui::Ui) {
         // Управление экранами
-        ui.heading("Экраны");
-        ui.small("Экраны определяют цвет фона и текст, которые будут показываться");
+        ui.heading(tr(&self.bundle, "screens-title"));
+        ui.small(tr(&self.bundle, "screens-description"));
 
         let mut screen_changed = false;
         let mut to_delete_screen: Option<usize> = None;
@@ -1201,7 +1060,6 @@ impl AppState {
             ui.strong("О приложении");
             ui.label("FlowTimer v0.1.0");
             ui.small("Приложение для визуального отображения временных интервалов");
-            ui.small("© 2024 Pet Projects");
 
             ui.separator();
             ui.strong("Горячие клавиши:");

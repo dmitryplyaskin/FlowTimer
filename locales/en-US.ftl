@@ -55,6 +55,7 @@ screens-create = ➕ Create new screen
 screen-delete-tooltip = Delete screen
 screen-edit-tooltip = Edit screen
 screen-new-title = New screen
+screen-default-title = New screen
 
 # Interval management
 intervals-title = Time intervals
@@ -122,7 +123,15 @@ transition-step = Step { $step }/{ $total } in '{ $interval }'
 app-title = About application
 app-version = FlowTimer v0.1.0
 app-description = Application for visual display of time intervals
-app-copyright = © 2024 Pet Projects
+
+# Window control buttons
+btn-close = Close
+btn-minimize = Minimize
+btn-settings = Settings
+
+# Hotkeys
+hotkeys-title = Hotkeys:
+hotkey-settings = F1 or Ctrl+, - open/close settings
 
 # Default screens
 default-screen-work = Work
