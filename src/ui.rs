@@ -5,7 +5,7 @@ use eframe::egui;
 use crate::{
     config::{AppConfig, CycleStep, IntervalMode, Rgba8, ScreenConfig, TimeInterval, TimeOfDay},
     timer::{TimerScheduler, format_duration_hhmmss, get_daily_transitions, validate_intervals},
-    utils::{set_language, tr},
+    utils::{set_language, tr, tr_with_args},
 };
 
 use fluent_bundle::{FluentBundle, FluentResource};
@@ -365,7 +365,7 @@ impl AppState {
 
         ui.group(|ui| {
             if self.config.screens.is_empty() {
-                ui.label("Нет созданных экранов");
+                ui.label(tr(&self.bundle, "screens-none"));
             } else {
                 for (idx, screen) in self.config.screens.iter().enumerate() {
                     ui.horizontal(|ui| {
@@ -383,14 +383,14 @@ impl AppState {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui
                                 .small_button("🗑")
-                                .on_hover_text("Удалить экран")
+                                .on_hover_text(tr(&self.bundle, "screen-delete-tooltip"))
                                 .clicked()
                             {
                                 to_delete_screen = Some(idx);
                             }
                             if ui
                                 .small_button("✏")
-                                .on_hover_text("Редактировать экран")
+                                .on_hover_text(tr(&self.bundle, "screen-edit-tooltip"))
                                 .clicked()
                             {
                                 to_edit_screen = Some(idx);
@@ -402,10 +402,10 @@ impl AppState {
         });
 
         // Кнопка добавления нового экрана
-        if ui.button("➕ Создать новый экран").clicked() {
+        if ui.button(tr(&self.bundle, "screens-create")).clicked() {
             let new_screen = ScreenConfig {
                 id: self.next_screen_id,
-                title: "Новый экран".to_string(),
+                title: tr(&self.bundle, "screen-default-title"),
                 subtitle: String::new(),
                 color: Rgba8 {
                     r: 100,
@@ -441,8 +441,8 @@ impl AppState {
         ui.separator();
 
         // Управление временными интервалами
-        ui.heading("Временные интервалы");
-        ui.small("Каждый интервал имеет свое время работы и режим отображения экранов");
+        ui.heading(tr(&self.bundle, "intervals-title"));
+        ui.small(tr(&self.bundle, "intervals-description"));
 
         let mut interval_changed = false;
         let mut to_delete_interval: Option<usize> = None;
@@ -450,7 +450,7 @@ impl AppState {
 
         ui.group(|ui| {
             if self.config.intervals.is_empty() {
-                ui.label("Нет созданных интервалов");
+                ui.label(tr(&self.bundle, "intervals-none"));
             } else {
                 for (idx, interval) in self.config.intervals.iter().enumerate() {
                     ui.group(|ui| {
@@ -486,14 +486,14 @@ impl AppState {
                                 |ui| {
                                     if ui
                                         .small_button("🗑")
-                                        .on_hover_text("Удалить интервал")
+                                        .on_hover_text(tr(&self.bundle, "interval-delete-tooltip"))
                                         .clicked()
                                     {
                                         to_delete_interval = Some(idx);
                                     }
                                     if ui
                                         .small_button("✏")
-                                        .on_hover_text("Редактировать интервал")
+                                        .on_hover_text(tr(&self.bundle, "interval-edit-tooltip"))
                                         .clicked()
                                     {
                                         to_edit_interval = Some(idx);
@@ -507,7 +507,7 @@ impl AppState {
         });
 
         // Кнопка добавления нового интервала
-        if ui.button("➕ Создать новый интервал").clicked() {
+        if ui.button(tr(&self.bundle, "intervals-create")).clicked() {
             let start_time = if let Some(last) = self.config.intervals.last() {
                 last.end
             } else {
@@ -516,7 +516,7 @@ impl AppState {
 
             let new_interval = TimeInterval {
                 id: self.next_interval_id,
-                name: "Новый интервал".to_string(),
+                name: tr(&self.bundle, "interval-new-title"),
                 start: start_time,
                 end: TimeOfDay {
                     hour: start_time.hour + 1,
@@ -550,30 +550,30 @@ impl AppState {
 
         // Валидация и предупреждения
         ui.separator();
-        ui.heading("Валидация настроек");
+        ui.heading(tr(&self.bundle, "validation-title"));
 
         let validation_errors = validate_intervals(&self.config.intervals);
         if !validation_errors.is_empty() {
             ui.group(|ui| {
-                ui.strong("⚠ Обнаружены проблемы в настройках:");
+                ui.strong(tr(&self.bundle, "validation-problems-found"));
                 for error in &validation_errors {
                     ui.small(error);
                 }
             });
         } else {
             ui.group(|ui| {
-                ui.strong("✓ Настройки корректны");
-                ui.small("Все интервалы настроены правильно");
+                ui.strong(tr(&self.bundle, "validation-ok"));
+                ui.small(tr(&self.bundle, "validation-all-correct"));
             });
         }
 
         // Показываем расписание переходов на день
         ui.separator();
-        ui.heading("Расписание переходов");
+        ui.heading(tr(&self.bundle, "schedule-title"));
 
         let transitions = get_daily_transitions(&self.config);
         if transitions.is_empty() {
-            ui.small("Нет настроенных переходов");
+            ui.small(tr(&self.bundle, "schedule-none"));
         } else {
             ui.group(|ui| {
                 egui::ScrollArea::vertical()
@@ -611,9 +611,9 @@ impl AppState {
     fn ui_interval_editor(&mut self, ctx: &egui::Context) {
         if let Some(editing) = &mut self.editing_interval {
             let title = if editing.is_new {
-                "Новый интервал"
+                tr(&self.bundle, "interval-editor-new")
             } else {
-                "Редактирование интервала"
+                tr(&self.bundle, "interval-editor-edit")
             };
 
             let mut open = true;
@@ -632,15 +632,15 @@ impl AppState {
 
                     // Название интервала
                     ui.horizontal(|ui| {
-                        ui.label("Название:");
+                        ui.label(tr(&self.bundle, "interval-name-field"));
                         ui.text_edit_singleline(&mut editing.interval.name);
                     });
 
                     // Время работы интервала
                     ui.group(|ui| {
-                        ui.strong("Время работы");
+                        ui.strong(tr(&self.bundle, "interval-time-work"));
                         ui.horizontal(|ui| {
-                            ui.label("С");
+                            ui.label(tr(&self.bundle, "interval-time-from"));
                             ui.add(
                                 egui::DragValue::new(&mut editing.interval.start.hour)
                                     .range(0..=23)
@@ -653,7 +653,7 @@ impl AppState {
                                     .speed(1.0),
                             );
 
-                            ui.label("до");
+                            ui.label(tr(&self.bundle, "interval-time-to"));
 
                             ui.add(
                                 egui::DragValue::new(&mut editing.interval.end.hour)
@@ -676,24 +676,29 @@ impl AppState {
                         } else {
                             0
                         };
-                        ui.small(format!(
-                            "Длительность: {} ч {} мин",
-                            duration_minutes / 60,
-                            duration_minutes % 60
+                        let hours = duration_minutes / 60;
+                        let minutes = duration_minutes % 60;
+                        let mut args = fluent_bundle::FluentArgs::new();
+                        args.set("hours", hours);
+                        args.set("minutes", minutes);
+                        ui.small(tr_with_args(
+                            &self.bundle,
+                            "interval-duration-format",
+                            Some(&args),
                         ));
                     });
 
                     ui.separator();
 
                     // Режим интервала
-                    ui.strong("Режим работы интервала");
+                    ui.strong(tr(&self.bundle, "interval-mode-work"));
 
                     let is_static = matches!(editing.interval.mode, IntervalMode::Static { .. });
 
                     ui.horizontal(|ui| {
                         if ui
-                            .radio(is_static, "Статичный")
-                            .on_hover_text("Показывает один экран весь интервал")
+                            .radio(is_static, tr(&self.bundle, "interval-mode-static-radio"))
+                            .on_hover_text(tr(&self.bundle, "interval-mode-static-tooltip"))
                             .clicked()
                             && !is_static
                         {
@@ -702,8 +707,8 @@ impl AppState {
                             };
                         }
                         if ui
-                            .radio(!is_static, "Циклический")
-                            .on_hover_text("Циклически переключает экраны")
+                            .radio(!is_static, tr(&self.bundle, "interval-mode-cycle-radio"))
+                            .on_hover_text(tr(&self.bundle, "interval-mode-cycle-tooltip"))
                             .clicked()
                             && is_static
                         {
@@ -716,14 +721,16 @@ impl AppState {
                     // Настройка в зависимости от режима
                     match &mut editing.interval.mode {
                         IntervalMode::Static { screen_id } => {
-                            ui.label("Выберите экран для отображения:");
+                            ui.label(tr(&self.bundle, "interval-screen-choose"));
                             let screen_name = self
                                 .config
                                 .screens
                                 .iter()
                                 .find(|s| s.id == *screen_id)
                                 .map(|s| s.title.clone())
-                                .unwrap_or_else(|| "Выберите экран".to_string());
+                                .unwrap_or_else(|| {
+                                    tr(&self.bundle, "interval-screen-choose-placeholder")
+                                });
 
                             egui::ComboBox::from_id_salt("static_screen_combo")
                                 .selected_text(&screen_name)
@@ -735,14 +742,20 @@ impl AppState {
                                 });
                         }
                         IntervalMode::Cycle { steps } => {
-                            ui.label("Настройте последовательность экранов:");
+                            ui.label(tr(&self.bundle, "interval-steps-configure"));
 
                             let mut to_remove: Option<usize> = None;
 
                             for (idx, step) in steps.iter_mut().enumerate() {
                                 ui.group(|ui| {
                                     ui.horizontal(|ui| {
-                                        ui.strong(&format!("Шаг {}", idx + 1));
+                                        let mut args = fluent_bundle::FluentArgs::new();
+                                        args.set("number", idx + 1);
+                                        ui.strong(tr_with_args(
+                                            &self.bundle,
+                                            "interval-step-number",
+                                            Some(&args),
+                                        ));
                                         ui.with_layout(
                                             egui::Layout::right_to_left(egui::Align::Center),
                                             |ui| {
@@ -754,14 +767,16 @@ impl AppState {
                                     });
 
                                     ui.horizontal(|ui| {
-                                        ui.label("Экран:");
+                                        ui.label(tr(&self.bundle, "interval-step-screen-label"));
                                         let screen_name = self
                                             .config
                                             .screens
                                             .iter()
                                             .find(|s| s.id == step.screen_id)
                                             .map(|s| s.title.clone())
-                                            .unwrap_or_else(|| "Выберите".to_string());
+                                            .unwrap_or_else(|| {
+                                                tr(&self.bundle, "interval-step-choose")
+                                            });
 
                                         egui::ComboBox::from_id_salt(format!(
                                             "cycle_screen_{}",
@@ -782,7 +797,7 @@ impl AppState {
                                             },
                                         );
 
-                                        ui.label("Длительность:");
+                                        ui.label(tr(&self.bundle, "interval-step-duration-label"));
                                         ui.add(
                                             egui::DragValue::new(&mut step.duration_minutes)
                                                 .range(1..=480)
@@ -797,7 +812,7 @@ impl AppState {
                                 steps.remove(idx);
                             }
 
-                            if ui.button("➕ Добавить шаг").clicked() {
+                            if ui.button(tr(&self.bundle, "interval-step-add")).clicked() {
                                 steps.push(CycleStep {
                                     screen_id: self
                                         .config
@@ -812,9 +827,12 @@ impl AppState {
                             if !steps.is_empty() {
                                 let total_duration: u32 =
                                     steps.iter().map(|s| s.duration_minutes).sum();
-                                ui.small(format!(
-                                    "Общая длительность цикла: {} мин",
-                                    total_duration
+                                let mut args = fluent_bundle::FluentArgs::new();
+                                args.set("minutes", total_duration);
+                                ui.small(tr_with_args(
+                                    &self.bundle,
+                                    "interval-cycle-duration",
+                                    Some(&args),
                                 ));
                             }
                         }
@@ -824,10 +842,10 @@ impl AppState {
 
                     // Кнопки управления
                     ui.horizontal(|ui| {
-                        if ui.button("Сохранить").clicked() {
+                        if ui.button(tr(&self.bundle, "btn-save")).clicked() {
                             should_save = true;
                         }
-                        if ui.button("Отмена").clicked() {
+                        if ui.button(tr(&self.bundle, "btn-cancel")).clicked() {
                             should_close = true;
                         }
                     });
@@ -922,10 +940,10 @@ impl AppState {
 
                     // Кнопки управления
                     ui.horizontal(|ui| {
-                        if ui.button("Сохранить").clicked() {
+                        if ui.button(tr(&self.bundle, "btn-save")).clicked() {
                             should_save = true;
                         }
-                        if ui.button("Отмена").clicked() {
+                        if ui.button(tr(&self.bundle, "btn-cancel")).clicked() {
                             should_close = true;
                         }
                     });
@@ -962,8 +980,8 @@ impl AppState {
 
             let mut selected = self.config.language.to_string();
             let current_text = match selected.as_str() {
-                "ru-RU" | "ru" => "Русский",
-                _ => "English",
+                "ru-RU" | "ru" => tr(&self.bundle, "language-russian"),
+                _ => "English".to_string(),
             };
 
             ui.horizontal(|ui| {
@@ -971,7 +989,11 @@ impl AppState {
                     .selected_text(current_text)
                     .show_ui(ui, |ui| {
                         ui.selectable_value(&mut selected, "en-US".to_owned(), "English");
-                        ui.selectable_value(&mut selected, "ru-RU".to_owned(), "Русский");
+                        ui.selectable_value(
+                            &mut selected,
+                            "ru-RU".to_owned(),
+                            tr(&self.bundle, "language-russian"),
+                        );
                     });
             });
 
@@ -1057,15 +1079,13 @@ impl AppState {
 
         // Информация о версии и разработчике
         ui.group(|ui| {
-            ui.strong("О приложении");
-            ui.label("FlowTimer v0.1.0");
-            ui.small("Приложение для визуального отображения временных интервалов");
+            ui.strong(tr(&self.bundle, "app-title"));
+            ui.label(tr(&self.bundle, "app-version"));
+            ui.small(tr(&self.bundle, "app-description"));
 
             ui.separator();
-            ui.strong("Горячие клавиши:");
-            ui.small("Space - пауза/продолжить таймер");
-            ui.small("F5 или Ctrl+R - принудительно обновить");
-            ui.small("F1 или Ctrl+, - открыть/закрыть настройки");
+            ui.strong(tr(&self.bundle, "hotkeys-title"));
+            ui.small(tr(&self.bundle, "hotkey-settings"));
         });
 
         // Автосохранение при изменениях

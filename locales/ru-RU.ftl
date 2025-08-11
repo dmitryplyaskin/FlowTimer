@@ -70,34 +70,34 @@ interval-cycle-mode = (цикл из { $steps } шагов)
 
 # Валидация и расписание
 validation-title = Валидация настроек
-validation-problems = ⚠ Обнаружены проблемы в настройках:
+validation-problems-found = ⚠ Обнаружены проблемы в настройках:
 validation-ok = ✓ Настройки корректны
-validation-ok-desc = Все интервалы настроены правильно
+validation-all-correct = Все интервалы настроены правильно
 schedule-title = Расписание переходов
 schedule-none = Нет настроенных переходов
 
 # Редактор интервалов
 interval-editor-new = Новый интервал
 interval-editor-edit = Редактирование интервала
-interval-name-label = Название:
-interval-time-title = Время работы
+interval-name-field = Название:
+interval-time-work = Время работы
 interval-time-from = С
 interval-time-to = до
-interval-duration = Длительность: { $hours } ч { $minutes } мин
-interval-mode-title = Режим работы интервала
-interval-mode-static = Статичный
-interval-mode-static-desc = Показывает один экран весь интервал
-interval-mode-cycle = Циклический
-interval-mode-cycle-desc = Циклически переключает экраны
-interval-screen-select = Выберите экран для отображения:
-interval-screen-placeholder = Выберите экран
-interval-steps-title = Настройте последовательность экранов:
-interval-step-title = Шаг { $number }
-interval-step-screen = Экран:
-interval-step-duration = Длительность:
-interval-step-select = Выберите
+interval-duration-format = Длительность: {$hours} ч {$minutes} мин
+interval-mode-work = Режим работы интервала
+interval-mode-static-radio = Статичный
+interval-mode-static-tooltip = Показывает один экран весь интервал
+interval-mode-cycle-radio = Циклический
+interval-mode-cycle-tooltip = Циклически переключает экраны
+interval-screen-choose = Выберите экран для отображения:
+interval-screen-choose-placeholder = Выберите экран
+interval-steps-configure = Настройте последовательность экранов:
+interval-step-number = Шаг {$number}
+interval-step-screen-label = Экран:
+interval-step-duration-label = Длительность:
+interval-step-choose = Выберите
 interval-step-add = ➕ Добавить шаг
-interval-cycle-total = Общая длительность цикла: { $minutes } мин
+interval-cycle-duration = Общая длительность цикла: {$minutes} мин
 
 # Экран по умолчанию
 default-waiting = Ожидание
@@ -132,6 +132,11 @@ btn-settings = Настройки
 # Горячие клавиши
 hotkeys-title = Горячие клавиши:
 hotkey-settings = F1 или Ctrl+, - открыть/закрыть настройки
+
+
+
+# Языки
+language-russian = Русский
 
 # Экраны по умолчанию
 default-screen-work = Работа

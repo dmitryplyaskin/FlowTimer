@@ -70,34 +70,34 @@ interval-cycle-mode = (cycle of { $steps } steps)
 
 # Validation and schedule
 validation-title = Settings validation
-validation-problems = ⚠ Issues found in settings:
+validation-problems-found = ⚠ Issues found in settings:
 validation-ok = ✓ Settings are correct
-validation-ok-desc = All intervals are configured properly
+validation-all-correct = All intervals are configured properly
 schedule-title = Transition schedule
 schedule-none = No configured transitions
 
 # Interval editor
 interval-editor-new = New interval
 interval-editor-edit = Edit interval
-interval-name-label = Name:
-interval-time-title = Working time
+interval-name-field = Name:
+interval-time-work = Working time
 interval-time-from = From
 interval-time-to = to
-interval-duration = Duration: { $hours } h { $minutes } min
-interval-mode-title = Interval working mode
-interval-mode-static = Static
-interval-mode-static-desc = Shows one screen for the entire interval
-interval-mode-cycle = Cyclic
-interval-mode-cycle-desc = Cyclically switches screens
-interval-screen-select = Select screen to display:
-interval-screen-placeholder = Select screen
-interval-steps-title = Configure screen sequence:
-interval-step-title = Step { $number }
-interval-step-screen = Screen:
-interval-step-duration = Duration:
-interval-step-select = Select
+interval-duration-format = Duration: {$hours} h {$minutes} min
+interval-mode-work = Interval working mode
+interval-mode-static-radio = Static
+interval-mode-static-tooltip = Shows one screen for the entire interval
+interval-mode-cycle-radio = Cyclic
+interval-mode-cycle-tooltip = Cyclically switches screens
+interval-screen-choose = Select screen to display:
+interval-screen-choose-placeholder = Select screen
+interval-steps-configure = Configure screen sequence:
+interval-step-number = Step {$number}
+interval-step-screen-label = Screen:
+interval-step-duration-label = Duration:
+interval-step-choose = Select
 interval-step-add = ➕ Add step
-interval-cycle-total = Total cycle duration: { $minutes } min
+interval-cycle-duration = Total cycle duration: {$minutes} min
 
 # Default screen
 default-waiting = Waiting
@@ -132,6 +132,11 @@ btn-settings = Settings
 # Hotkeys
 hotkeys-title = Hotkeys:
 hotkey-settings = F1 or Ctrl+, - open/close settings
+
+
+
+# Languages
+language-russian = Russian
 
 # Default screens
 default-screen-work = Work
