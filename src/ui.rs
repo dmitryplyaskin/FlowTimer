@@ -299,48 +299,50 @@ impl AppState {
                     assert!(class == egui::ViewportClass::Immediate);
                     let mut close_requested = false;
 
-                    egui::CentralPanel::default().show(ctx, |ui| {
-                        // Увеличиваем размер шрифта для всего интерфейса настроек
-                        ui.style_mut().text_styles.insert(
-                            egui::TextStyle::Body,
-                            egui::FontId::new(16.0, egui::FontFamily::Proportional),
-                        );
-                        ui.style_mut().text_styles.insert(
-                            egui::TextStyle::Button,
-                            egui::FontId::new(16.0, egui::FontFamily::Proportional),
-                        );
-                        ui.style_mut().text_styles.insert(
-                            egui::TextStyle::Heading,
-                            egui::FontId::new(20.0, egui::FontFamily::Proportional),
-                        );
-                        ui.style_mut().text_styles.insert(
-                            egui::TextStyle::Small,
-                            egui::FontId::new(14.0, egui::FontFamily::Proportional),
-                        );
-
-                        ui.horizontal_wrapped(|ui| {
-                            let timers_tab = ui.selectable_label(
-                                matches!(self.settings_tab, SettingsTab::Timers),
-                                tr(&self.bundle, "tab-timers"),
+                    egui::CentralPanel::default()
+                        .frame(egui::Frame::default().fill(egui::Color32::WHITE))
+                        .show(ctx, |ui| {
+                            // Увеличиваем размер шрифта для всего интерфейса настроек
+                            ui.style_mut().text_styles.insert(
+                                egui::TextStyle::Body,
+                                egui::FontId::new(16.0, egui::FontFamily::Proportional),
                             );
-                            let system_tab = ui.selectable_label(
-                                matches!(self.settings_tab, SettingsTab::System),
-                                tr(&self.bundle, "tab-system"),
+                            ui.style_mut().text_styles.insert(
+                                egui::TextStyle::Button,
+                                egui::FontId::new(16.0, egui::FontFamily::Proportional),
                             );
-                            if timers_tab.clicked() {
-                                self.settings_tab = SettingsTab::Timers;
-                            }
-                            if system_tab.clicked() {
-                                self.settings_tab = SettingsTab::System;
-                            }
-                        });
-                        ui.separator();
+                            ui.style_mut().text_styles.insert(
+                                egui::TextStyle::Heading,
+                                egui::FontId::new(20.0, egui::FontFamily::Proportional),
+                            );
+                            ui.style_mut().text_styles.insert(
+                                egui::TextStyle::Small,
+                                egui::FontId::new(14.0, egui::FontFamily::Proportional),
+                            );
 
-                        egui::ScrollArea::vertical().show(ui, |ui| match self.settings_tab {
-                            SettingsTab::Timers => self.ui_tab_timers(ui),
-                            SettingsTab::System => self.ui_tab_system(ui),
+                            ui.horizontal_wrapped(|ui| {
+                                let timers_tab = ui.selectable_label(
+                                    matches!(self.settings_tab, SettingsTab::Timers),
+                                    tr(&self.bundle, "tab-timers"),
+                                );
+                                let system_tab = ui.selectable_label(
+                                    matches!(self.settings_tab, SettingsTab::System),
+                                    tr(&self.bundle, "tab-system"),
+                                );
+                                if timers_tab.clicked() {
+                                    self.settings_tab = SettingsTab::Timers;
+                                }
+                                if system_tab.clicked() {
+                                    self.settings_tab = SettingsTab::System;
+                                }
+                            });
+                            ui.separator();
+
+                            egui::ScrollArea::vertical().show(ui, |ui| match self.settings_tab {
+                                SettingsTab::Timers => self.ui_tab_timers(ui),
+                                SettingsTab::System => self.ui_tab_system(ui),
+                            });
                         });
-                    });
 
                     if ctx.input(|i| i.viewport().close_requested()) {
                         close_requested = true;

@@ -1,7 +1,7 @@
-use chrono::{Local, Timelike, DateTime, Duration};
+use chrono::{DateTime, Duration, Local, Timelike};
 use std::time::SystemTime;
 
-use crate::config::{AppConfig, Rgba8, TimeInterval, IntervalMode};
+use crate::config::{AppConfig, IntervalMode, Rgba8, TimeInterval};
 
 #[derive(Debug, Clone)]
 pub struct ActiveScreenInfo {
@@ -49,24 +49,29 @@ impl TimerScheduler {
     pub fn update(&mut self, config: &AppConfig) -> bool {
         let now = Local::now();
         let prev_screen_id = self.state.current_screen.as_ref().map(|s| s.screen_id);
-        
+
         self.state.current_screen = determine_active_screen(config, now);
         self.state.last_update = SystemTime::now();
-        
+
         // Определяем, изменился ли экран
         let current_screen_id = self.state.current_screen.as_ref().map(|s| s.screen_id);
         let screen_changed = prev_screen_id != current_screen_id;
-        
+
         // Вычисляем время следующего перехода
         self.state.next_transition = calculate_next_transition(config, now);
-        
+
         screen_changed
     }
 
     /// Возвращает true, если таймер должен быть обновлен
     pub fn should_update(&self) -> bool {
-        self.state.is_running && 
-        self.state.last_update.elapsed().unwrap_or(std::time::Duration::from_secs(0)) >= std::time::Duration::from_secs(1)
+        self.state.is_running
+            && self
+                .state
+                .last_update
+                .elapsed()
+                .unwrap_or(std::time::Duration::from_secs(0))
+                >= std::time::Duration::from_secs(1)
     }
 
     /// Приостанавливает или возобновляет таймер
@@ -80,20 +85,23 @@ impl TimerScheduler {
     }
 }
 
-pub fn determine_active_screen(cfg: &AppConfig, now: chrono::DateTime<Local>) -> Option<ActiveScreenInfo> {
+pub fn determine_active_screen(
+    cfg: &AppConfig,
+    now: chrono::DateTime<Local>,
+) -> Option<ActiveScreenInfo> {
     let now_min = (now.hour() as u32) * 60 + (now.minute() as u32);
-    
+
     // Найдем активный интервал
     for interval in &cfg.intervals {
         let start_min = interval.start.to_minutes();
         let end_min = interval.end.to_minutes();
-        
+
         if start_min <= now_min && now_min < end_min {
             // Этот интервал активен
             return determine_screen_in_interval(cfg, interval, now_min, now.second());
         }
     }
-    
+
     // Вне всех интервалов - показываем экран по умолчанию
     let screen = cfg
         .default_screen_id
@@ -105,17 +113,20 @@ pub fn determine_active_screen(cfg: &AppConfig, now: chrono::DateTime<Local>) ->
     for interval in &cfg.intervals {
         let start = interval.start.to_minutes();
         if start > now_min {
-            next_start = Some(match next_start { Some(ns) => ns.min(start), None => start });
+            next_start = Some(match next_start {
+                Some(ns) => ns.min(start),
+                None => start,
+            });
         }
     }
-    
+
     let remaining_seconds = if let Some(ns) = next_start {
         ((ns - now_min) as u64) * 60 + (60 - now.second() as u64 % 60)
     } else {
         // до конца дня
         ((24 * 60 - now_min) as u64) * 60 + (60 - now.second() as u64 % 60)
     };
-    
+
     Some(ActiveScreenInfo {
         title: screen.title.clone(),
         subtitle: screen.subtitle.clone(),
@@ -127,10 +138,15 @@ pub fn determine_active_screen(cfg: &AppConfig, now: chrono::DateTime<Local>) ->
     })
 }
 
-fn determine_screen_in_interval(cfg: &AppConfig, interval: &TimeInterval, now_min: u32, now_sec: u32) -> Option<ActiveScreenInfo> {
+fn determine_screen_in_interval(
+    cfg: &AppConfig,
+    interval: &TimeInterval,
+    now_min: u32,
+    now_sec: u32,
+) -> Option<ActiveScreenInfo> {
     let start_min = interval.start.to_minutes();
     let end_min = interval.end.to_minutes();
-    
+
     match &interval.mode {
         IntervalMode::Static { screen_id } => {
             // Статичный режим - показываем один экран весь интервал
@@ -142,7 +158,7 @@ fn determine_screen_in_interval(cfg: &AppConfig, interval: &TimeInterval, now_mi
                 } else {
                     60 - now_sec as u64
                 };
-                
+
                 Some(ActiveScreenInfo {
                     title: screen.title.clone(),
                     subtitle: format!("{} (статичный режим)", screen.subtitle),
@@ -161,7 +177,7 @@ fn determine_screen_in_interval(cfg: &AppConfig, interval: &TimeInterval, now_mi
                 } else {
                     60 - now_sec as u64
                 };
-                
+
                 Some(ActiveScreenInfo {
                     title: format!("⚠ Экран не найден (ID: {})", screen_id),
                     subtitle: "Используется экран по умолчанию".to_string(),
@@ -178,17 +194,17 @@ fn determine_screen_in_interval(cfg: &AppConfig, interval: &TimeInterval, now_mi
             if steps.is_empty() {
                 return None;
             }
-            
+
             let into_interval = now_min - start_min;
             let total_cycle: u32 = steps.iter().map(|s| s.duration_minutes).sum();
-            
+
             if total_cycle == 0 {
                 return None;
             }
-            
+
             let pos_in_cycle = into_interval % total_cycle;
             let mut acc = 0;
-            
+
             for step in steps {
                 let next_acc = acc + step.duration_minutes;
                 if pos_in_cycle < next_acc {
@@ -197,17 +213,22 @@ fn determine_screen_in_interval(cfg: &AppConfig, interval: &TimeInterval, now_mi
                         // Не выходим за границу интервала
                         let remaining_to_interval_end = end_min - now_min;
                         let remaining_minutes = remaining_in_step.min(remaining_to_interval_end);
-                        
+
                         // Улучшенный расчет времени с учетом секунд
                         let seconds = if remaining_minutes > 0 {
                             (remaining_minutes - 1) as u64 * 60 + (60 - now_sec as u64)
                         } else {
                             60 - now_sec as u64
                         };
-                        
+
                         // Показываем информацию о шаге в подзаголовке
-                        let step_info = format!("Шаг {}/{} (цикл)", 
-                            steps.iter().position(|s| s.screen_id == step.screen_id).unwrap_or(0) + 1,
+                        let step_info = format!(
+                            "Шаг {}/{} (цикл)",
+                            steps
+                                .iter()
+                                .position(|s| s.screen_id == step.screen_id)
+                                .unwrap_or(0)
+                                + 1,
                             steps.len()
                         );
                         let subtitle = if screen.subtitle.is_empty() {
@@ -215,7 +236,7 @@ fn determine_screen_in_interval(cfg: &AppConfig, interval: &TimeInterval, now_mi
                         } else {
                             format!("{} — {}", screen.subtitle, step_info)
                         };
-                        
+
                         return Some(ActiveScreenInfo {
                             title: screen.title.clone(),
                             subtitle,
@@ -238,21 +259,21 @@ fn determine_screen_in_interval(cfg: &AppConfig, interval: &TimeInterval, now_mi
 /// Вычисляет время следующего перехода между экранами
 pub fn calculate_next_transition(cfg: &AppConfig, now: DateTime<Local>) -> Option<DateTime<Local>> {
     let now_min = (now.hour() as u32) * 60 + (now.minute() as u32);
-    
+
     // Проверяем, находимся ли мы в активном интервале
     for interval in &cfg.intervals {
         let start_min = interval.start.to_minutes();
         let end_min = interval.end.to_minutes();
-        
+
         if start_min <= now_min && now_min < end_min {
             // Мы в активном интервале
             match &interval.mode {
                 IntervalMode::Static { .. } => {
                     // В статичном режиме следующий переход - конец интервала
                     let end_time = now.date_naive().and_hms_opt(
-                        (interval.end.hour) as u32, 
-                        interval.end.minute as u32, 
-                        0
+                        (interval.end.hour) as u32,
+                        interval.end.minute as u32,
+                        0,
                     )?;
                     return Some(end_time.and_local_timezone(Local).single()?);
                 }
@@ -261,32 +282,32 @@ pub fn calculate_next_transition(cfg: &AppConfig, now: DateTime<Local>) -> Optio
                     if steps.is_empty() {
                         return None;
                     }
-                    
+
                     let into_interval = now_min - start_min;
                     let total_cycle: u32 = steps.iter().map(|s| s.duration_minutes).sum();
-                    
+
                     if total_cycle == 0 {
                         return None;
                     }
-                    
+
                     let pos_in_cycle = into_interval % total_cycle;
                     let mut acc = 0;
-                    
+
                     for step in steps {
                         let next_acc = acc + step.duration_minutes;
                         if pos_in_cycle < next_acc {
                             // Следующий переход - конец текущего шага
                             let minutes_to_next = next_acc - pos_in_cycle;
                             let next_time = now + Duration::minutes(minutes_to_next as i64);
-                            
+
                             // Но не позже конца интервала
                             let end_time = now.date_naive().and_hms_opt(
-                                interval.end.hour as u32, 
-                                interval.end.minute as u32, 
-                                0
+                                interval.end.hour as u32,
+                                interval.end.minute as u32,
+                                0,
                             )?;
                             let end_datetime = end_time.and_local_timezone(Local).single()?;
-                            
+
                             return Some(next_time.min(end_datetime));
                         }
                         acc = next_acc;
@@ -295,28 +316,28 @@ pub fn calculate_next_transition(cfg: &AppConfig, now: DateTime<Local>) -> Optio
             }
         }
     }
-    
+
     // Мы вне всех интервалов - следующий переход это начало ближайшего интервала
     let mut next_start: Option<(u32, &TimeInterval)> = None;
     for interval in &cfg.intervals {
         let start = interval.start.to_minutes();
         if start > now_min {
-            next_start = Some(match next_start { 
+            next_start = Some(match next_start {
                 Some((ns, _)) if ns < start => next_start.unwrap(),
-                _ => (start, interval)
+                _ => (start, interval),
             });
         }
     }
-    
+
     if let Some((_, interval)) = next_start {
         let start_time = now.date_naive().and_hms_opt(
-            interval.start.hour as u32, 
-            interval.start.minute as u32, 
-            0
+            interval.start.hour as u32,
+            interval.start.minute as u32,
+            0,
         )?;
         return Some(start_time.and_local_timezone(Local).single()?);
     }
-    
+
     None
 }
 
@@ -324,7 +345,11 @@ pub fn format_duration_hhmmss(total_secs: u64) -> String {
     let h = total_secs / 3600;
     let m = (total_secs % 3600) / 60;
     let s = total_secs % 60;
-    if h > 0 { format!("{:02}:{:02}:{:02}", h, m, s) } else { format!("{:02}:{:02}", m, s) }
+    if h > 0 {
+        format!("{:02}:{:02}:{:02}", h, m, s)
+    } else {
+        format!("{:02}:{:02}", m, s)
+    }
 }
 
 /// Форматирует время до следующего перехода
@@ -343,12 +368,12 @@ pub fn format_time_until_transition(next_transition: Option<DateTime<Local>>) ->
 /// Валидирует интервалы на предмет пересечений и корректности
 pub fn validate_intervals(intervals: &[TimeInterval]) -> Vec<String> {
     let mut errors = Vec::new();
-    
+
     // Проверяем каждый интервал на корректность
     for (idx, interval) in intervals.iter().enumerate() {
         let start_min = interval.start.to_minutes();
         let end_min = interval.end.to_minutes();
-        
+
         // Проверяем, что начало раньше конца
         if start_min >= end_min {
             errors.push(format!(
@@ -358,13 +383,13 @@ pub fn validate_intervals(intervals: &[TimeInterval]) -> Vec<String> {
                 interval.end.hour, interval.end.minute
             ));
         }
-        
+
         // Проверяем пересечения с другими интервалами
         for (other_idx, other_interval) in intervals.iter().enumerate() {
             if idx != other_idx {
                 let other_start = other_interval.start.to_minutes();
                 let other_end = other_interval.end.to_minutes();
-                
+
                 // Проверяем пересечение
                 if start_min < other_end && end_min > other_start {
                     errors.push(format!(
@@ -374,7 +399,7 @@ pub fn validate_intervals(intervals: &[TimeInterval]) -> Vec<String> {
                 }
             }
         }
-        
+
         // Проверяем корректность режимов
         match &interval.mode {
             IntervalMode::Cycle { steps } => {
@@ -398,49 +423,47 @@ pub fn validate_intervals(intervals: &[TimeInterval]) -> Vec<String> {
             }
         }
     }
-    
+
     errors
 }
 
 /// Получает список всех переходов в течение дня
 pub fn get_daily_transitions(cfg: &AppConfig) -> Vec<(u32, String, String)> {
     let mut transitions = Vec::new();
-    
+
     // Добавляем начала и концы интервалов
     for interval in &cfg.intervals {
         transitions.push((
             interval.start.to_minutes(),
             format!("Начало: {}", interval.name),
-            "start".to_string()
+            "start".to_string(),
         ));
-        
+
         transitions.push((
             interval.end.to_minutes(),
             format!("Конец: {}", interval.name),
-            "end".to_string()
+            "end".to_string(),
         ));
-        
+
         // Для циклических режимов добавляем переходы между шагами
         if let IntervalMode::Cycle { steps } = &interval.mode {
             let mut acc_minutes = 0;
             for (step_idx, step) in steps.iter().enumerate() {
                 acc_minutes += step.duration_minutes;
                 let transition_time = interval.start.to_minutes() + acc_minutes;
-                
+
                 if transition_time < interval.end.to_minutes() {
                     transitions.push((
                         transition_time,
                         format!("Шаг {}/{} в '{}'", step_idx + 2, steps.len(), interval.name),
-                        "step".to_string()
+                        "step".to_string(),
                     ));
                 }
             }
         }
     }
-    
+
     // Сортируем по времени
     transitions.sort_by_key(|t| t.0);
     transitions
 }
-
-
